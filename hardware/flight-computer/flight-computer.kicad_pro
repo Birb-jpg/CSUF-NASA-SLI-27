@@ -668,9 +668,24 @@
         "filename": "flight-computer.kicad_sch",
         "name": "flight-computer",
         "uuid": "4732f405-ee5b-4c02-a3a3-fa2d6f8c8251"
+      },
+      {
+        "filename": "test.kicad_sch",
+        "name": "test",
+        "uuid": "640d9b20-c8a2-4318-9b0c-0b25ad91ba37"
+      },
+      {
+        "filename": "sbc.kicad_sch",
+        "name": "SBC",
+        "uuid": "d71ecbe9-270d-40b6-8c59-1d17e42465ad"
+      },
+      {
+        "filename": "power.kicad_sch",
+        "name": "Power",
+        "uuid": "53aecbb3-0dd3-45c8-a32e-87f75a506e84"
       }
     ],
-    "used_designators": "#PWR1-17,#PWR31-44,A1,BT1-3,BZ1,C1-13,C17-18,C22-23,L1,M1-2,R1-2,U1-6,U9",
+    "used_designators": "#PWR1-18,#PWR31-44,#PWR58-85,A1-2,BT1-3,BZ1-2,C1-13,C15-26,D3-4,J3-4,L1,M1-4,R1-2,U1-15",
     "variants": []
   },
   "sheets": [
@@ -681,6 +696,18 @@
     [
       "f680817e-09fa-4e10-a5e8-f4aa882c00ac",
       "Root"
+    ],
+    [
+      "640d9b20-c8a2-4318-9b0c-0b25ad91ba37",
+      "test"
+    ],
+    [
+      "d71ecbe9-270d-40b6-8c59-1d17e42465ad",
+      "SBC"
+    ],
+    [
+      "53aecbb3-0dd3-45c8-a32e-87f75a506e84",
+      "Power"
     ]
   ],
   "text_variables": {},
