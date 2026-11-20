@@ -3,97 +3,75 @@
 
 #include "Barometer.h"
 
-namespace {
-  constexpr uint8_t SDA_PIN = 0;
-  constexpr uint8_t SCL_PIN = 1;
-  constexpr uint8_t BMP_ADDRESS = 0x47;
+static bool bmpReady = false;
+static bool calibrated = false;
+static bool headerPrinted = false;
+static uint32_t lastStatus_ms = 0;
 
-  constexpr uint32_t STALE_TIMEOUT_MS = 2000;
-  constexpr uint32_t STATUS_INTERVAL_MS = 1000;
+void setup()
+{
+    Serial.begin(115200);
 
-  BarometerReading latestReading;
+    // Shared I2C bus: GP0 = SDA, GP1 = SCL.
+    Wire.setSDA(0);
+    Wire.setSCL(1);
+    Wire.begin();
+    Wire.setClock(100000);
 
-  bool barometerReady = false;
-  bool headerPrinted = false;
+    bmpReady = initBMP(Wire, 0x47);
 
-  uint32_t lastSampleOrStartupMs = 0;
-  uint32_t lastStatusMs = 0;
+    if (bmpReady) {
+        // Keep the board stationary during startup calibration.
+        calibrated = calibrateBMP();
+    }
+}
 
-  void printReading(const BarometerReading& reading) {
-    // Acquisition continues even without a connected Serial Monitor.
+void loop()
+{
+    // Allow the header to be printed again after reconnecting USB serial.
     if (!Serial) {
-      return;
+        headerPrinted = false;
     }
 
-    if (!headerPrinted) {
-      Serial.println(
-          "timestamp_ms,temperature_c,pressure_hpa,valid");
-      headerPrinted = true;
+    const bool newSample = bmpReady && updateBMP();
+
+    if (Serial && !headerPrinted) {
+        Serial.print("# BMP initialization: ");
+        Serial.println(bmpReady ? "OK" : "FAILED");
+
+        Serial.print("# Altitude baseline calibration: ");
+        Serial.println(calibrated ? "OK" : "FAILED");
+
+        Serial.println(
+            "timestamp_ms,temperature_c,pressure_hpa,altitude_ft,valid");
+
+        headerPrinted = true;
     }
 
-    Serial.print(reading.timestamp_ms);
-    Serial.print(',');
-    Serial.print(reading.temperature_c, 3);
-    Serial.print(',');
-    Serial.print(reading.pressure_hpa, 3);
-    Serial.println(",1");
-  }
-
-  void printStatus(const char* message) {
-    const uint32_t now = millis();
+    if (Serial && newSample) {
+        Serial.print(getBMPTimestamp_ms());
+        Serial.print(',');
+        Serial.print(getTemperature_C(), 3);
+        Serial.print(',');
+        Serial.print(getPressure_hPa(), 3);
+        Serial.print(',');
+        Serial.print(getAltitude_ft(), 3);
+        Serial.println(",1");
+    }
 
     if (Serial &&
-        static_cast<uint32_t>(now - lastStatusMs) >=
-            STATUS_INTERVAL_MS) {
-      // Comment prefix distinguishes status from CSV sample rows.
-      Serial.print("# ");
-      Serial.println(message);
-      lastStatusMs = now;
+        static_cast<uint32_t>(
+            millis() - lastStatus_ms) >= 1000) {
+
+        lastStatus_ms = millis();
+
+        if (!bmpReady) {
+            Serial.println(
+                "# Initialization failed: check wiring/address and restart.");
+        } else if (!hasValidBMPReading()) {
+            Serial.println("# No valid recent BMP reading.");
+        }
     }
-  }
-}
 
-void setup() {
-  Serial.begin(115200);
-
-  // Shared bus setup belongs here so the IMU can use it later.
-  Wire.setSDA(SDA_PIN);
-  Wire.setSCL(SCL_PIN);
-  Wire.begin();
-  Wire.setClock(100000);
-
-  barometerReady = Barometer::begin(Wire, BMP_ADDRESS);
-  lastSampleOrStartupMs = millis();
-}
-
-void loop() {
-  if (!Serial) {
-    headerPrinted = false;
-  }
-
-  if (!barometerReady) {
-    printStatus(
-        "BMP initialization failed; check wiring/address, then restart.");
     delay(5);
-    return;
-  }
-
-  const BarometerResult result =
-      Barometer::read(latestReading);
-
-  if (result == BarometerResult::Updated) {
-    lastSampleOrStartupMs = latestReading.timestamp_ms;
-    printReading(latestReading);
-  } else if (result == BarometerResult::ReadFailed) {
-    printStatus("BMP read failed; sample invalid.");
-  }
-
-  if (static_cast<uint32_t>(
-          millis() - lastSampleOrStartupMs) >= STALE_TIMEOUT_MS) {
-    latestReading.valid = false;
-    printStatus("BMP data timeout; latest sample invalid.");
-  }
-
-  // Short polling interval; sensor output is configured for 10 Hz.
-  delay(5);
 }
